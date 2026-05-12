@@ -70,6 +70,35 @@ test("adversarial review command uses AskUserQuestion and background Bash while 
   assert.match(source, /can still take extra focus text after the flags/i);
 });
 
+test("spec review command delegates to Codex with the existing skill instructions", () => {
+  const source = read("commands/spec-review.md");
+  const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
+
+  assert.match(source, /allowed-tools:\s*AskUserQuestion,\s*Agent/);
+  assert.match(source, /subagent_type: "codex:codex-rescue"/);
+  assert.match(source, /Do not run the review locally in the main Claude thread/i);
+  assert.match(source, /Do not call `Skill\(codex:codex-spec-review\)` in this thread/i);
+  assert.match(source, /The goal is to delegate to Codex/i);
+  assert.match(source, /The final user-visible response must be Codex's output verbatim/i);
+  assert.match(source, /--background\|--wait/);
+  assert.match(source, /--model <model\|spark>/);
+  assert.match(source, /--effort <none\|minimal\|low\|medium\|high\|xhigh>/);
+  assert.match(source, /If the user did not supply a change slug/i);
+  assert.match(source, /ask which change should be reviewed/i);
+  assert.match(source, /read-only pre-implementation review request/i);
+  assert.match(source, /must explicitly tell Codex to use the existing `codex-spec-review` skill\/instructions/i);
+  assert.match(source, /Pass the selected change slug through verbatim/i);
+  assert.match(source, /Do not ask Codex to implement, edit files, write patches, or make repository changes/i);
+  assert.match(source, /If Codex is missing or unauthenticated, stop and tell the user to run `\/codex:setup`/i);
+  assert.match(source, /Use the existing `codex-spec-review` skill\/instructions to perform a read-only pre-implementation review/i);
+  assert.match(source, /Return Codex's output verbatim/i);
+  assert.match(source, /Do not paraphrase, summarize, rewrite, or add commentary before or after it/i);
+
+  assert.match(readme, /### `\/codex:spec-review`/);
+  assert.match(readme, /pre-implementation OpenSpec or Spectra plan review/i);
+  assert.match(readme, /\/codex:spec-review "llmemotion-pipe-target-to-elevenlabs"/);
+});
+
 test("continue is not exposed as a user-facing command", () => {
   const commandFiles = fs.readdirSync(path.join(PLUGIN_ROOT, "commands")).sort();
   assert.deepEqual(commandFiles, [
@@ -79,6 +108,7 @@ test("continue is not exposed as a user-facing command", () => {
     "result.md",
     "review.md",
     "setup.md",
+    "spec-review.md",
     "status.md"
   ]);
 });

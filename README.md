@@ -11,6 +11,7 @@ they already have.
 
 - `/codex:review` for a normal read-only Codex review
 - `/codex:adversarial-review` for a steerable challenge review
+- `/codex:spec-review` for a Codex-delegated pre-implementation OpenSpec or Spectra plan review
 - `/codex:rescue`, `/codex:status`, `/codex:result`, and `/codex:cancel` to delegate work and manage background jobs
 
 ## Requirements
@@ -122,6 +123,23 @@ Examples:
 ```
 
 This command is read-only. It does not fix code.
+
+### `/codex:spec-review`
+
+Delegates a pre-implementation OpenSpec or Spectra plan review to Codex using the existing `codex-spec-review` skill instructions.
+
+It supports `--wait` and `--background`. It also preserves `--model` and `--effort` when you want to steer the delegated Codex run.
+
+Use it when you want:
+
+- a Codex review of an OpenSpec or Spectra change plan before implementation starts
+- the existing `codex-spec-review` rubric/workflow to run in Codex instead of Claude locally
+
+Example:
+
+```bash
+/codex:spec-review "llmemotion-pipe-target-to-elevenlabs"
+```
 
 ### `/codex:rescue`
 
