@@ -61,7 +61,6 @@ function buildThreadParams(cwd, options = {}) {
     sandbox: options.sandbox ?? "read-only",
     serviceName: SERVICE_NAME,
     ephemeral: options.ephemeral ?? true,
-    experimentalRawEvents: false
   };
 }
 
