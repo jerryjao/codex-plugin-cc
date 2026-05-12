@@ -1,84 +1,124 @@
 ---
 name: Codex-SPEC-Review
-description: Review an OpenSpec/Spectra change plan with deep logic analysis, risk assessment, and execution-detail checks before implementation
+description: Codex-first review workflow for OpenSpec or Spectra change plans, with grounded pre-implementation findings and a required output-style menu
 user-invocable: true
 ---
 
 # Codex SPEC Review
 
-Use this skill to review a Spectra or OpenSpec change plan before implementation. The goal is to identify blocking logic gaps, execution risks, and missing details, then wait for the user to choose how the findings should be presented.
+Use this skill when the user wants Codex to review an OpenSpec or Spectra change plan before implementation.
 
-## Input
+This skill is for plan review, not implementation. The goal is to identify problems that should be resolved before coding starts, grounded in the actual change artifacts and any referenced repository files.
 
-The change name appears after `$spec-double-review`, usually in quotes.
+## What this skill does
+
+It performs a silent pre-implementation review across three dimensions:
+1. logical consistency
+2. execution risk
+3. execution-detail completeness
+
+Then it pauses and asks the user which output style they want.
+
+## Expected input
+
+The user will usually provide a command-like request containing a change name after `$spec-double-review`.
 
 Examples:
 - `$spec-double-review "2026-04-30-speak-graph-segment-driven"`
 - `$spec-double-review "a2f2-mouth-tuner"`
 
-If the user does not provide a name:
-- infer it from nearby conversation context when possible
-- otherwise ask the user which change to review
+The quoted value is the target change slug.
 
-## Phase 1: Locate and load the change plan
+If no explicit slug is provided:
+- first infer it from nearby conversation context if the target is unambiguous
+- otherwise list the available changes and ask the user to choose one
+
+## Operating rules
+
+- Stay read-only.
+- Do not modify files, generate patches, or propose code edits unless the user separately asks for implementation help later.
+- Ground every finding in the actual plan files and, when relevant, in verified repository paths or symbols.
+- Do not expose the internal review process. Only show the required menu first, then the final conclusions after the user chooses a style.
+- Do not skip the style-selection wait.
+
+## Phase 1: Locate and load the change
 
 ### 1. Parse the change name
 
-Support both:
-- full slug, like `2026-04-30-speak-graph-segment-driven`
-- short slug tail, like `speak-graph-segment-driven`
+Support both of these forms:
+- full slug, for example `2026-04-30-speak-graph-segment-driven`
+- short slug tail, for example `speak-graph-segment-driven`
 
-### 2. Find the matching directory
+### 2. Resolve the matching directory
 
 Search in this order:
 1. `openspec/changes/<slug>/`
 2. `openspec/changes/archive/<slug>/`
-3. if exact match fails, fuzzy-match by slug tail in both locations
+3. if no exact match exists, fuzzy-match the slug tail across both locations
 
-If no match exists, stop and ask the user to choose a valid change after listing available changes.
+If nothing matches:
+- list available changes
+- stop there
+- ask the user to pick one
 
 ### 3. Read all relevant artifacts
 
-Read every applicable file under the chosen change:
+Load every applicable artifact under the selected change:
 - `proposal.md` — required
 - `design.md` — if present
 - `tasks.md` — if present
 - `specs/*/spec.md` — if present
 
-If `tasks.md` references files, classes, functions, or symbols, verify that they actually exist in the repository before relying on them.
+If `tasks.md`, `design.md`, or a spec references files, classes, functions, modules, directories, or symbols in the repository, verify they actually exist before relying on them.
+
+If a referenced file or symbol cannot be found, treat that as a review finding when it materially affects implementation clarity.
 
 ## Phase 2: Silent three-angle review
 
-Do not show this analysis process to the user. Perform it internally.
+Perform this analysis silently. Do not show interim reasoning.
 
 ### A. Logic consistency
 
-Check for:
-- mismatch between goals and design
-- hidden assumptions
-- missing boundary conditions such as error paths, empty values, or concurrency
-- tasks that do not fully deliver the proposal
+Look for:
+- mismatch between stated goals and described design
+- hidden assumptions that are required but not stated
+- missing edge cases such as empty input, failure modes, retries, concurrency, rollback, or partial-completion behavior
+- tasks that do not fully implement the proposal
 - inconsistent terminology for the same concept
+- requirements stated in one artifact but omitted or contradicted in another
 
 ### B. Risk assessment
 
-Check for:
-- technical uncertainty in APIs, frameworks, or external systems
-- compatibility risks with runtime or host environment constraints
-- integration risks across related subsystems
-- weak or missing validation and test strategy
+Look for:
+- technical uncertainty around APIs, frameworks, libraries, protocols, or external systems
+- compatibility risks with the runtime, host environment, or existing behavior
+- integration risks across related subsystems, tools, or data flows
+- unclear migration, rollout, rollback, or failure-containment strategy
+- weak or missing validation and test coverage plans
 
-### C. Execution detail quality
+### C. Execution-detail quality
 
-Check for:
-- vague instructions such as “appropriately” or “if needed”
-- missing acceptance criteria
-- incorrect or nonexistent file, class, or function references
-- omitted prerequisite steps
+Look for:
+- vague instructions such as “appropriately”, “as needed”, “if necessary”, or “handle carefully”
+- missing acceptance criteria or unclear done conditions
+- incorrect, ambiguous, or nonexistent file/class/function references
+- missing prerequisites, ordering constraints, or handoff details
+- steps that are too high-level for a different engineer to execute reliably
 
-## Phase 3: Mandatory style-selection menu
+## Severity guidance
 
-After the review is complete, do not present findings immediately. First show exactly this menu and wait for the user to answer:
+Prioritize findings that should block implementation from starting:
+- logic contradictions that undermine the design
+- high-risk unknowns that could cause rework or breakage
+- missing execution detail that makes the plan non-actionable
+
+Do not pad the answer with minor nits. Prefer a shorter, sharper set of high-value findings.
+
+## Phase 3: Required user menu
+
+After the review is complete, do not present findings yet.
+
+Show exactly this menu and wait for the user to reply:
 
 ```text
 ✅ 審查完成！請選擇輸出風格：
@@ -90,17 +130,21 @@ After the review is complete, do not present findings immediately. First show ex
 請回覆 1、2 或 3：
 ```
 
-Do not skip the wait. Do not assume a default style.
+Do not assume a default. Do not emit findings before the user answers.
 
 ## Phase 4: Final output contract
 
-Only output these two sections:
+Only include these two sections in the final answer:
 - problems that must be resolved before implementation starts
 - overall assessment
 
+Do not include a full analysis table, chain-of-thought, or extra sections.
+
 ### Style 1 — Professional
 
-Format:
+Use technically precise language.
+
+Output shape:
 
 ```markdown
 ## Spec Review: <change-name>
@@ -109,7 +153,7 @@ Format:
 
 1. **[問題標題]**
    - 性質：邏輯矛盾 / 高風險 / 執行細節不足
-   - 說明：<具體描述，附文件位置 proposal.md / design.md / tasks.md>
+   - 說明：<具體描述，附文件位置 proposal.md / design.md / tasks.md / specs/...>
    - 建議：<明確的修正方向>
 
 （若無問題，標記「未發現需阻擋實作的問題」）
@@ -125,9 +169,9 @@ Format:
 
 ### Style 2 — Elementary-school version
 
-Use everyday analogies and avoid jargon.
+Use plain everyday analogies and avoid technical jargon. Explain each issue in a way that a non-technical reader could follow.
 
-Format:
+Output shape:
 
 ```markdown
 ## 計畫健檢報告：<change-name>
@@ -152,12 +196,23 @@ Format:
 
 ### Style 3 — Both
 
-Output the full Style 1 result first, then a separator line, then the full Style 2 result.
+Output the full Style 1 result first.
+Then output a separator line.
+Then output the full Style 2 result.
+
+## Review-quality requirements
+
+- Prefer evidence over confidence.
+- If a point is uncertain, label it clearly instead of overstating it.
+- Cite the exact artifact location for every material finding.
+- When repository verification was needed, mention the verified path or missing reference only inside the finding itself.
+- Focus on issues that matter before implementation starts, not hypothetical post-implementation refinements.
 
 ## Guardrails
 
-- Read-only only: never write, edit, or modify repository files as part of the review itself.
-- Every finding must be grounded in specific document locations.
-- Keep phases 1 and 2 silent.
-- Always show the Phase 3 menu before any conclusions.
-- Final output must contain only the problem list and the overall assessment.
+- Read-only only.
+- No file writes.
+- No code changes.
+- No hidden implementation planning presented as review output.
+- No final conclusions before the user selects an output style.
+- Final output must contain only the required problem list and the overall assessment.
